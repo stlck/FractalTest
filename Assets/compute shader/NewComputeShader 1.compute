@@ -1,0 +1,60 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+//RWTexture2D<float4> Result;
+RWTexture2D<float4> tex;
+
+int modOff;
+
+float4 boxFold(float4 v)
+{
+	if (v.x > 1 )
+		v.x =  2 - v.x;
+	else if (v.x < -1)
+		v.x = -2 - v.x;
+		
+	if (v.z > 1 )
+		v.z =  2 - v.z;
+	else if( v.z < -1)
+		v.z = -2 - v.z;
+
+	return v;
+}
+
+float4 ballFold(float r, float4 v)
+{
+	float m = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	if (m < r)
+		m = m/(r*r);
+	else if (m < 1 )
+		m = 1/(m*m);
+	return v;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float w, h;
+    tex.GetDimensions(w, h);
+
+	float c = 0.234;
+	float s = 2;
+	float r = 0.5;
+	float f = 1;
+	float4 o = float4(id.x,id.y,id.z,1);
+
+	for(int x = 0; x < 50; x++)
+	{
+		o = s * ballFold(r, f*boxFold(o)) + c;
+	}
+	tex[id.xy] = o;
+	//if(id.y % 10 == modOff || id.x % 10 == modOff)
+	//	tex[id.xy] = float4( (id.x)/w, 1, (w -id.x) /w,1);
+	//else if(id.x == 7)
+	//	tex[id.xy] = float4(1,1,1,1);
+	//else
+	//	tex[id.xy] = 0;
+}
+
