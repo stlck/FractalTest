@@ -1,5 +1,6 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
+#pragma kernel CSMain2
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -33,6 +34,67 @@ float4 ballFold(float r, float4 v)
 	return v;
 }
 
+float DE(float3 z)
+{
+	float Scale = 2;
+	float Offset = 1;
+	int Iterations = 5;
+    float r;
+    int n = 0;
+    while (n < Iterations) {
+       if(z.x+z.y<0) z.xy = -z.yx; // fold 1
+       if(z.x+z.z<0) z.xz = -z.zx; // fold 2
+       if(z.y+z.z<0) z.zy = -z.yz; // fold 3	
+       z = z*Scale - Offset*(Scale-1.0);
+       n++;
+    }
+    return (length(z) ) * pow(Scale, -float(n));
+}
+float DE2(float3 pos) {
+
+	int Iterations = 5;
+	float3 z = pos;
+	float dr = 1.0;
+	float r = 0.0;
+	float Power = 1;
+	float Bailout = 100;
+
+	for (int i = 0; i < Iterations ; i++) {
+		r = length(z);
+		if (r>Bailout) break;
+		
+		// convert to polar coordinates
+		float theta = acos(z.z/r);
+		float phi = atan(z.yx);
+		dr =  pow( r, Power-1.0)*Power*dr + 1.0;
+		
+		// scale and rotate the point
+		float zr = pow( r,Power);
+		theta = theta*Power;
+		phi = phi*Power;
+		
+		// convert back to cartesian coordinates
+		z = zr*float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z+=pos;
+	}
+	return 0.5*log(r)*r/dr;
+}
+
+float trace(float3 from, float3 direction) {
+	float totalDistance = 0.0;
+	int steps;
+	int MaximumRaySteps = 10;
+	int MinimumDistance = 0.1;
+
+	for (steps=0; steps < MaximumRaySteps; steps++) {
+		float3 p = from + totalDistance * direction;
+		float distance = DE2(p);
+		totalDistance += distance;
+		if (distance < MinimumDistance) break;
+	}
+	return 1.0-float(steps)/float(MaximumRaySteps);
+}
+
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -58,3 +120,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	//	tex[id.xy] = 0;
 }
 
+[numthreads(8,8,1)]
+void CSMain2 (uint3 id : SV_DispatchThreadID)
+{
+	tex[id.xy] = trace(id, float3(0,0,1));
+}

@@ -11,27 +11,27 @@ public class UseCompute2 : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
         
-        tex = new RenderTexture(128, 128, 1);
+        tex = new RenderTexture(1024, 1024, 1);
         tex.enableRandomWrite = true;
         tex.Create();
 
-        index = cs.FindKernel("CSMain");
-        cs.SetInt("modOff", (int)mod);
+        index = cs.FindKernel("CSMain2");
+        //cs.SetInt("modOff", (int)mod);
         cs.SetTexture(index, "tex", tex);
-        cs.Dispatch(index, 128 / 8, 128 / 8, 1);
+        cs.Dispatch(index, 1024 / 8, 1024 / 8, 1);
 
         target.SetTexture(0, tex);
     }
 	
 	// Update is called once per frame
 	void Update () {
-        mod ++;
+      /*  mod ++;
 
         cs.SetInt("modOff", (int)mod);
         cs.Dispatch(index, 128 / 8, 128 / 8, 1);
 
         if (mod >= 10)
-            mod = 0;
+            mod = 0;*/
 	}
 
     void OnDestroy()

@@ -9,6 +9,7 @@ Properties {
     _Scale("Scale", Vector) = (1, 1, 1, 0)
 
     _Scene("Scene", Float) = 0
+	_Type("FracType", Int) = 0
 
     [Toggle(ENABLE_SCREENSPACE)] _EnableScreenSpace("ScreenSpace", Float) = 0
     [Toggle(ENABLE_ADAPTIVE)] _EnableAdaptive("Adaptive", Float) = 0
@@ -31,6 +32,7 @@ float _Scene;
 float3 _Position;
 float4 _Rotation;
 float3 _Scale;
+int _Type;
 
 float3 localize(float3 p)
 {
@@ -46,18 +48,53 @@ float3 localize(float3 p)
 float map(float3 p)
 {
     p = localize(p);
-
+	
+	if (_Type == 0)
+	{
+		return pseudo_kleinian((p + float3(0.0, -0.5, 0.0)).xzy);
+	}
+	else if (_Type == 1)
+	{
+		return tglad_formula(p);
+	}
+	else if (_Type == 2)
+	{
+		return hartverdrahtet2(p, _Scene);
+	}
+	else if (_Type == 3)
+	{
+		return MandelBulbtest(p);
+	}
+	else if (_Type == 4)
+	{
+		return tglad_formula3(p, _Scene);
+	}
+	else if (_Type == 5)
+	{
+		return tglad_formula4(p, _Scene);
+	}
+	else if (_Type == 6)
+		return mandel1(p, _Scene);
+	else
+	{
+		return tglad_formula2(p, _Scene);
+	}
+	/*
     if(_Scene==0) {
         return pseudo_kleinian( (p+float3(0.0, -0.5, 0.0)).xzy );
     }
     else if (_Scene==1) {
         return tglad_formula(p);
     }
-	else if (_Scene>0 && _Scene<10){
+	else if (_Scene > 0 && _Scene < 10) {
 		return hartverdrahtet2(p, _Scene);
 	}
+	else if (_Scene == -2)
+		return MandelBulbtest(p);
+	else if(_Scene < -3)
+		return tglad_formula3(p, _Scene);
 	else
-        return tglad_formula2(p,_Scene);
+        return tglad_formula2(p,_Scene);*/
 
     //else {
    //     return pseudo_knightyan( (p+float3(0.0, -0.5, 0.0)).xzy );
@@ -72,7 +109,7 @@ float map(float3 p)
 float3 guess_normal(float3 p)
 {
     const float d = 0.001;
-    return normalize( float3(
+	return normalize( float3(
         map(p+float3(  d,0.0,0.0))-map(p+float3( -d,0.0,0.0)),
         map(p+float3(0.0,  d,0.0))-map(p+float3(0.0, -d,0.0)),
         map(p+float3(0.0,0.0,  d))-map(p+float3(0.0,0.0, -d)) ));

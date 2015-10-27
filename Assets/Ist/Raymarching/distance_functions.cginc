@@ -48,18 +48,197 @@ float tglad_formula(float3 z0)
 
 float tglad_formula2(float3 z0, float s)
 {
-    z0 = modc(z0, 2.0 * s);
+    z0 = modc(z0, 2 * s);
 
-    float mr=0.25, mxr=1.0;
+    float mr=0.5, mxr=1.0;
     float4 scale=float4(-3.12,-3.12,-3.12,3.12), p0=float4(0.0,1.59,-1.0,0.0);
     float4 z = float4(z0,1.0);
-    for (int n = 0; n < 3; n++) {
+    for (int n = 0; n < 5; n++) {
         z.xyz=clamp(z.xyz, -0.94, 0.94)*2.0-z.xyz;
         z*=scale/clamp(dot(z.xyz,z.xyz),mr,mxr);
         z+=p0;
     }
     float dS=(length(max(abs(z.xyz)-float3(1.2,49.0,1.4),0.0))-0.06)/z.w;
     return dS;
+}
+
+float3 boxFold(float3 v)
+{
+	if (v.x > 1)
+		v.x = 2 - v.x;
+	else if (v.x < -1)
+		v.x = -2 - v.x;
+
+	if (v.z > 1)
+		v.z = 2 - v.z;
+	else if (v.z < -1)
+		v.z = -2 - v.z;
+
+	if (v.y > .5)
+		v.y = 1 - v.y;
+	else if (v.y < -.5)
+		v.y = -1 - v.y;
+
+	return v;
+}
+
+void boxFold2(inout float3 z, inout float dz) {
+	float foldingLimit = 1;
+	z = clamp(z, -foldingLimit, foldingLimit) * 2.0 - z;
+}
+
+float4 ballFold(float r, float4 v)
+{
+	float m = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+	if (m < r)
+		m = m / (r*r);
+	else if (m < 1)
+		m = 1 / (m*m);
+	return v * m;
+}
+
+void sphereFold(inout float3 z, inout float dz) {
+	float r2 = dot(z, z);
+	float minRadius2 = 0.4;
+	float fixedRadius2 = .8;
+
+	if (r2 < minRadius2) {
+		// linear inner scaling
+		float temp = (fixedRadius2 / minRadius2);
+		z *= temp;
+		dz *= temp;
+	}
+	else if (r2 < fixedRadius2) {
+		// this is the actual sphere inversion
+		float temp = (fixedRadius2 / r2);
+		z *= temp;
+		dz *= temp;
+	}
+}
+
+float tglad_formula3(float3 z, float s)
+{
+	float3 offset = z ;
+	float Scale = s;
+	float dr = 1.0;
+	float Iterations = 10;
+	
+	for (int n = 0; n < Iterations; n++) {
+		//z += .123;
+		boxFold2(z, dr);       // Reflect
+		sphereFold(z, dr);    // Sphere Inversion
+		z = Scale*z + offset;  // Scale & Translate
+		dr = dr*abs(Scale) + 1.0;
+	}
+	float r = length(z);
+	//return dot(z,z) / length(z*dr);
+	//return .5 * r * log(r)/abs(dr);
+	return r / abs(dr);
+}
+
+float tglad_formula4(float3 z, float s)
+{
+	float3 offset = z;
+	float Scale = s;
+	float dr = 1.0;
+	float Iterations = 8;
+
+	for (int n = 0; n < Iterations; n++) {
+		
+		z = boxFold(z);
+
+		sphereFold(z, dr);    // Sphere Inversion
+		z = Scale*z + offset;  // Scale & Translate
+		dr = dr*abs(Scale) + 1.0;
+	}
+	float r = length(z);
+	//return dot(z,z) / length(z*dr);
+	//return .5 * r * log(r)/abs(dr);
+	return r / abs(dr);
+}
+
+float mandel1(float3 pos, float s)
+{
+	
+	int ColorIterations = 3;
+	int Iterations = 8;
+	float4 p = float4(pos, 1), p0 = p;  // p.w is the distance estimate
+	p0 = float4(1., -1., 1., 1.); // Julia mode for dummies ^_________^
+
+	for (int i = 0; i<Iterations; i++) {
+		//p.xyz *= rot;
+		float nx = abs(p.x);
+		float ny = abs(p.y);
+		float nz = abs(p.z);
+		float fo = .5;
+		float g = .9;
+		float fx = -2.*fo + nx;
+		float fy = -2.*fo + ny;
+		float fz = -2.*fo + nz;
+		float xf = (fo - abs(-fo + nx));
+		float yf = (fo - abs(-fo + ny));
+		float zf = (fo - abs(-fo + nz));
+		float gx = g + nx;
+		float gy = g + ny;
+		float gz = g + nz;
+
+		if (fx > 0 && fx>ny&& fx>nz) {
+			if (fx>gy&& fx>gz) {
+				// square edge:
+				xf += g;
+				// orthogonal axis must stay ortho:
+				yf = (fo - abs(g - fo + ny));
+				zf = (fo - abs(g - fo + nz));
+			}
+			else {
+				// top:
+				xf = -max(ny, nz);
+				// orthogonal axis must stay ortho:
+				yf = (fo - abs(-3.*fo + max(nx, nz)));
+				zf = (fo - abs(-3.*fo + max(ny, nx)));
+			}
+		}
+		if (fy > 0 && fy>nx&& fy>nz) {
+			if (fy>gx&& fy>gz) {
+				// square edge:
+				yf += g;
+				// orthogonal axis must stay ortho:
+				xf = (fo - abs(g - fo + nx));
+				zf = (fo - abs(g - fo + nz));
+			}
+			else {
+				// top:
+				yf = -max(nx, nz);
+				// orthogonal axis must stay ortho: 
+				xf = (fo - abs(-3.*fo + max(ny, nz)));
+				zf = (fo - abs(-3.*fo + max(ny, nx)));
+			}
+		}
+		if (fz > 0 && fz>nx&& fz>ny) {
+			if (fz>gx&& fz>gy) {
+				// square edge:
+				zf += g;
+				// orthogonal axis must stay ortho:
+				xf = (fo - abs(g - fo + nx));
+				zf = (fo - abs(g - fo + nz));
+			}
+			else {
+				// top:
+				zf = -max(ny, nx);
+				// orthogonal axis must stay ortho: 
+				xf = (fo - abs(-3.*fo + max(ny, nz)));
+				yf = (fo - abs(-3.*fo + max(nx, nz)));
+			}
+		}
+		p.x = xf; p.y = yf; p.z = zf;
+		float r2 = dot(p.xyz, p.xyz);
+		//if (i<ColorIterations) orbitTrap = min(orbitTrap, abs(vec4(p.xyz, r2)));
+		p *= clamp(max(.25 / r2, .25), 0.0, 1.0);  // dp3,div,max.sat,mul
+		p = p*s + p0;
+		if (r2>1000.0) break;
+
+	}
+	return ((length(p.xyz) - abs(s-1)) / p.w - pow(abs(s), float(1-Iterations)));
 }
 
 // distance function from Hartverdrahtet
@@ -140,6 +319,36 @@ float hartverdrahtet2(float3 f, float i)
     }
     float z=length(f.xy)-fu;
     return fd*max(z,abs(length(f.xy)*f.z)/sqrt(dot(f,f)))/abs(v);
+}
+
+float MandelBulbtest(float3 pos) {
+
+	int Iterations = 20;
+	float3 z = pos;
+	float dr = 1.0;
+	float r = 0.0;
+	float Power = 8;
+	float Bailout = 1000;
+
+	for (int i = 0; i < Iterations; i++) {
+		r = length(z);
+		if (r>Bailout) break;
+
+		// convert to polar coordinates
+		float theta = acos(z.z / r);
+		float phi = atan(z.yx);
+		dr = pow(r, Power - 1.0)*Power*dr + 1.0;
+
+		// scale and rotate the point
+		float zr = pow(r, Power);
+		theta = theta*Power;
+		phi = phi*Power;
+
+		// convert back to cartesian coordinates
+		z = zr*float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z += pos;
+	}
+	return 0.5*log(r)*r / dr;
 }
 
 float pseudo_kleinian(float3 p)

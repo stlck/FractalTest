@@ -72,9 +72,10 @@ public class Raymarcher : MonoBehaviour
     public bool m_enable_temporal = true;
     public bool m_enable_glowline = true;
     public bool m_dbg_show_steps;
-    [Range(-2,10)]
+    [Range(-6,10)]
     public float m_scene;
-    public Color m_fog_color = new Color(0.16f, 0.13f, 0.20f);
+    public int m_type;
+    public Color m_fog_color = new Color(0.16f, 0.13f, 0.20f, 0);
     Material m_internal_material;
     Vector2 m_resolution_prev;
     Mesh m_quad;
@@ -163,6 +164,7 @@ public class Raymarcher : MonoBehaviour
         if(m_internal_material == null) { return; }
 
         m_internal_material.SetFloat("_Scene", m_scene);
+        m_internal_material.SetFloat("_Type", m_type);
         SwitchKeyword(m_internal_material, "ENABLE_ADAPTIVE",    m_enable_adaptive );
         SwitchKeyword(m_internal_material, "ENABLE_TEMPORAL",    m_enable_temporal );
         SwitchKeyword(m_internal_material, "ENABLE_PATTERN",     m_enable_glowline );
