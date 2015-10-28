@@ -53,7 +53,7 @@
 				DE(p + float3(0.0, 0.0, d)) - DE(p + float3(0.0, 0.0, -d))));
 		}
 
-		float MaximumRaySteps = 100;
+		float MaximumRaySteps = 20;
 		float MinimumDistance = 1;
 
 		float trace(float3 from, float3 direction) {
@@ -61,7 +61,10 @@
 			float totalDistance = 0.0;
 			int steps;
 
-			for (steps = 0; steps < MaximumRaySteps; steps++) {
+			//for (steps = 0; steps < MaximumRaySteps; steps++) 
+			while(steps < MaximumRaySteps)
+			{
+				steps++;
 				float3 p = from + totalDistance * direction;
 				float distance = DE(p);
 				totalDistance += distance;
