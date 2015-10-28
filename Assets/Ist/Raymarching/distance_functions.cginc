@@ -161,7 +161,7 @@ float mandel1(float3 pos, float s)
 {
 	
 	int ColorIterations = 3;
-	int Iterations = 8;
+	int Iterations = 10;
 	float4 p = float4(pos, 1), p0 = p;  // p.w is the distance estimate
 	p0 = float4(1., -1., 1., 1.); // Julia mode for dummies ^_________^
 
@@ -233,8 +233,8 @@ float mandel1(float3 pos, float s)
 		p.x = xf; p.y = yf; p.z = zf;
 		float r2 = dot(p.xyz, p.xyz);
 		//if (i<ColorIterations) orbitTrap = min(orbitTrap, abs(vec4(p.xyz, r2)));
-		p *= clamp(max(.25 / r2, .25), 0.0, 1.0);  // dp3,div,max.sat,mul
-		p = p*s + p0;
+		p *= s/clamp(max(1 / r2, 1), 0.0, 1.0);  // dp3,div,max.sat,mul
+		p = p + p0;
 		if (r2>1000.0) break;
 
 	}

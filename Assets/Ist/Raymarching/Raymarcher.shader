@@ -25,7 +25,7 @@ CGINCLUDE
 #define MAX_MARCH_QPASS 40
 #define MAX_MARCH_HPASS 20
 #define MAX_MARCH_APASS 5
-#define MAX_MARCH_SINGLE_GBUFFER_PASS 100
+#define MAX_MARCH_SINGLE_GBUFFER_PASS 20
 
 
 float _Scene;
@@ -232,7 +232,7 @@ gbuffer_out frag_gbuffer(vs_out I)
     float2 coord = I.spos.xy;
     coord.x *= _ScreenParams.x / _ScreenParams.y;
 
-    float num_steps = 1.0;
+    float num_steps = 2.0;
     float last_distance = 0.0;
     float total_distance = _ProjectionParams.y;
     float3 ray_pos;
