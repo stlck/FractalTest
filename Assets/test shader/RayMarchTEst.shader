@@ -31,7 +31,7 @@
 			return dS;*/
 			float Scale = 2;
 			float Offset = 1;
-			int Iterations = 5;
+			int Iterations = 20;
 			float r;
 			int n = 0;
 			while (n < Iterations) {
