@@ -1,15 +1,15 @@
-﻿Shader "Custom/RayMarchTEst" 
+﻿Shader "Custom/RayMarchTEst Mandel1" 
 {
 	Properties {
 		_Color ("Color", Color) = (1,1,1,1)
-		_S ("S", float) = 3.4
-		_Sc ("Sc", Vector) = (1,1,1,1)
+		_S ("S", float) = 0
+		_Scale ("Scale", Vector) = (1,1,1,1)
 	}
 	CGINCLUDE
 		#include "UnityStandardCore.cginc"
 		#include "Assets/Ist/Raymarching/foundation.cginc"
 		float _S;
-		float3 _Sc;
+		float3 _Scale;
 
 		struct ia_out
 		{
@@ -31,69 +31,59 @@
 			float depth : SV_Depth;
 		};
 
-		float DE(float3 z)
-		{
-			float s = _Sc.x;
-			float c = _S;
-			float r = _Sc.y;
-			float rmin = r/2;
-			float f = _Sc.z;
-			float bx = .8;
-			float dr = 0;
-
-			for (int n = 0; n < 10; n++) {
-				// box
-				if( z.x > bx)
-					z.x = 2 - z.x;
-				else if(z.x < -bx)
-					z.x = -2 - z.x;
-				if( z.y > bx)
-					z.y = 2 - z.y;
-				else if(z.y < -bx)
-					z.y = -2 - z.y;
-				if( z.z > bx)
-					z.z = 2 - z.z;
-				else if(z.z < -bx)
-					z.z = -2 - z.z;
-
-				z *= f;
-
-				// ball:
-				float m = dot(z,z);
-				if( m < r)
-					z *= rmin/r;
-				else if( m < rmin)
-					z *= rmin/m;
-
-				z = z*s + c;
-				dr = s*dr + 1;
-			}
-			float l = length(z);
-			return .5 * log(l) * l / dr;
-
-			/*float s = _S;
-			z0 = modc(z0, 2 * s);
-
-			float mr=0.5, mxr=1.0;
-			float4 scale=float4(-3.12,-3.12,-3.12,3.12), p0=float4(_Sc,0);//float4(0.0,1.59,-1.0,0.0);
-			float4 z = float4(z0,1.0);
-			for (int n = 0; n < 5; n++) {
-				z.xyz=clamp(z.xyz, -0.94, 0.94)*2.0-z.xyz;
-				z*=scale/clamp(dot(z.xyz,z.xyz),mr,mxr);
-				z+=p0;
-			}
-			float dS=(length(max(abs(z.xyz)-float3(1.2,49.0,1.4),0.0))-0.06)/z.w;
-			return dS;*/
+		void boxFold2(inout float3 z, inout float dz) {
+			float foldingLimit = 1;
+			z = clamp(z, -foldingLimit, foldingLimit) * 2.0 - z;
 		}
 
-		void raymarching(float3 pos3, inout float o_total_distance, out float o_num_steps, out float o_last_distance, out float3 o_raypos, float max)
+		void sphereFold(inout float3 z, inout float dz) {
+			float r2 = dot(z, z);
+			float minRadius2 = 0.4;
+			float fixedRadius2 = .8;
+
+			if (r2 < minRadius2) {
+				// linear inner scaling
+				float temp = (fixedRadius2 / minRadius2);
+				z *= temp;
+				dz *= temp;
+			}
+			else if (r2 < fixedRadius2) {
+				// this is the actual sphere inversion
+				float temp = (fixedRadius2 / r2);
+				z *= temp;
+				dz *= temp;
+			}
+		}
+
+
+		float DE(float3 z)
+		{
+			float3 offset = z ;
+			float Scale = _S;
+			float dr = 1.0;
+			float Iterations = 20;
+	
+			for (int n = 0; n < Iterations; n++) {
+				//z += .123;
+				boxFold2(z, dr);       // Reflect
+				sphereFold(z, dr);    // Sphere Inversion
+				z = Scale*z + offset;  // Scale & Translate
+				dr = dr*abs(Scale) + 1.0;
+			}
+			float r = length(z);
+			//return dot(z,z) / length(z*dr);
+			//return .5 * r * log(r)/abs(dr);
+			return r / abs(dr);
+		}
+
+		void raymarching(float3 pos3, inout float o_total_distance, out float o_num_steps, out float o_last_distance, out float3 o_raypos)
 		{
 			float3 cam_pos      = GetCameraPosition();
 			//float3 cam_pos = float3(_CosTime.w,20,0);//mul (_Object2World, pos3 + float3(0,10,0)).xyz;
 
-			float3 cam_forward  = GetCameraForward();
-			float3 cam_up       = GetCameraUp();
-			float3 cam_right    = GetCameraRight();
+			float3 cam_forward  = float3(0,-1,0);//GetCameraForward();
+			float3 cam_up       = float3(0,0,1);//GetCameraUp();
+			float3 cam_right    = float3(1,0,0);//GetCameraRight();
 			float  cam_focal_len= GetCameraFocalLength();
 			
 			float2 pos = pos3.xy;
@@ -103,28 +93,29 @@
 			//float3 ray_dir = normalize(cam_pos - pos3);
 			//float3 ray_dir = normalize(cam_pos - pos3);
 
+			float max_distance = _ProjectionParams.z - _ProjectionParams.y;
 			o_raypos = cam_pos + ray_dir * o_total_distance;
+
 			o_num_steps = 0.0;
 			o_last_distance = 0.0;
-
 			for(int i=0; i<=100; ++i) {
 				o_last_distance = DE(o_raypos);
 				o_total_distance += o_last_distance;
-				o_raypos = ray_dir * o_total_distance;
+				o_raypos += ray_dir * o_last_distance;
 				
-				if(o_last_distance < 0.001 || o_total_distance > max)
+				if(o_last_distance < 0.0001 )//|| o_total_distance > max_distance)
 				{ 
 					o_num_steps = i;
 					break; 
 				}
 			}
-			//o_total_distance = min(o_total_distance, max);
+			o_total_distance = min(o_total_distance, max_distance);
 			//if(o_total_distance > max_distance) { discard; }
 		}
 
 		float3 guess_normal(float3 p)
 		{
-			const float d = 1;
+			const float d = 0.001;
 			return normalize(float3(
 				DE(p + float3(d, 0.0, 0.0)) - DE(p + float3(-d, 0.0, 0.0)),
 				DE(p + float3(0.0, d, 0.0)) - DE(p + float3(0.0, -d, 0.0)),
@@ -142,7 +133,7 @@
 
 	SubShader{
 		Pass{
-			Tags {"Queue"="Transparent"  "RenderType" = "Opaque" }
+			Tags {"Queue"="Transparent"  "RenderType" = "Transparent" }
 			ZWrite On
 			Cull Off
 			LOD 200
@@ -167,27 +158,23 @@
 			{
 				PixelOut ret;
 				v.spos.xy /= v.spos.w;
-				//v.spos.xyz /= 10;
+				v.spos.xyz /= _Scale;
 				float3 coord = v.spos.xyz;
 				coord.x *= _ScreenParams.x / _ScreenParams.y;
-				
-				float max_distance = _ProjectionParams.z - _ProjectionParams.y;
 
-				float tDist = 0;//_ProjectionParams.y;
+				float tDist = _ProjectionParams.y;
 				float numSteps;
 				float lastDist = 0;
 				float3 rayPos;
-				//void raymarching(float2 pos, inout float o_total_distance, out float o_num_steps, out float o_last_distance, out float3 o_raypos, max_distance)
-				raymarching(coord.xyz, tDist, numSteps, lastDist, rayPos, max_distance);
+				//void raymarching(float2 pos, inout float o_total_distance, out float o_num_steps, out float o_last_distance, out float3 o_raypos)
+				raymarching(coord.xyz, tDist, numSteps, lastDist, rayPos);
 				
-				float r = 1-(numSteps/100);
+				float r = (numSteps/100);
 				
 				ret.Color = _Color * r;// _Color * (lastDist/tDist);
-				
-								
-				if(numSteps >= 100 || tDist >= max_distance || numSteps <= 1)
+				if(numSteps >= 100)
 				{
-					ret.Color = float4(0,0,0,0);
+					ret.Color = float4(1,0,0,0);
 				}
 					
 				ret.normal = half4(guess_normal(rayPos),1);

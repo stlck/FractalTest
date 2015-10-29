@@ -145,8 +145,7 @@ float tglad_formula4(float3 z, float s)
 
 	for (int n = 0; n < Iterations; n++) {
 		
-		z = boxFold(z);
-
+		boxFold2(z, dr);
 		sphereFold(z, dr);    // Sphere Inversion
 		z = Scale*z + offset;  // Scale & Translate
 		dr = dr*abs(Scale) + 1.0;

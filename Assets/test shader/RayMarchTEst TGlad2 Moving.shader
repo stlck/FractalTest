@@ -1,4 +1,4 @@
-﻿Shader "Custom/RayMarchTEst" 
+﻿Shader "Custom/RayMarchTEst TGlad2 Moving" 
 {
 	Properties {
 		_Color ("Color", Color) = (1,1,1,1)
@@ -31,59 +31,23 @@
 			float depth : SV_Depth;
 		};
 
-		float DE(float3 z)
+		float DE(float3 z0)
 		{
-			float s = _Sc.x;
-			float c = _S;
-			float r = _Sc.y;
-			float rmin = r/2;
-			float f = _Sc.z;
-			float bx = .8;
-			float dr = 0;
+			    z0 = modc(z0, 2.0);
 
-			for (int n = 0; n < 10; n++) {
-				// box
-				if( z.x > bx)
-					z.x = 2 - z.x;
-				else if(z.x < -bx)
-					z.x = -2 - z.x;
-				if( z.y > bx)
-					z.y = 2 - z.y;
-				else if(z.y < -bx)
-					z.y = -2 - z.y;
-				if( z.z > bx)
-					z.z = 2 - z.z;
-				else if(z.z < -bx)
-					z.z = -2 - z.z;
-
-				z *= f;
-
-				// ball:
-				float m = dot(z,z);
-				if( m < r)
-					z *= rmin/r;
-				else if( m < rmin)
-					z *= rmin/m;
-
-				z = z*s + c;
-				dr = s*dr + 1;
-			}
-			float l = length(z);
-			return .5 * log(l) * l / dr;
-
-			/*float s = _S;
-			z0 = modc(z0, 2 * s);
-
-			float mr=0.5, mxr=1.0;
-			float4 scale=float4(-3.12,-3.12,-3.12,3.12), p0=float4(_Sc,0);//float4(0.0,1.59,-1.0,0.0);
-			float4 z = float4(z0,1.0);
-			for (int n = 0; n < 5; n++) {
-				z.xyz=clamp(z.xyz, -0.94, 0.94)*2.0-z.xyz;
-				z*=scale/clamp(dot(z.xyz,z.xyz),mr,mxr);
-				z+=p0;
-			}
-			float dS=(length(max(abs(z.xyz)-float3(1.2,49.0,1.4),0.0))-0.06)/z.w;
-			return dS;*/
+				float mr=0.25, mxr=1.0;
+				float4 scale=float4(-1,-1,-1,1)*_S, p0=float4(_CosTime.x,1.59,-1.0,0.0);
+				float4 z = float4(z0,1.0);
+				for (int n = 0; n < 4; n++) {
+					//z.xyz=clamp(z.xyz, -1, 1)*2.0-z.xyz;
+					z.x =clamp(z.x, -_Sc.x, _Sc.x)*2 - z.x;
+					z.y =clamp(z.y, -_Sc.y, _Sc.y)*2 - z.y;
+					z.z =clamp(z.z, -_Sc.z, _Sc.z)*2 - z.z;
+					z*=scale/clamp(dot(z.xyz,z.xyz),mr,mxr);
+					z+=p0;
+				}
+				float dS=(length(max(abs(z.xyz)-float3(1.2,49.0,1.4),0.0))-0.06)/z.w;
+				return dS;
 		}
 
 		void raymarching(float3 pos3, inout float o_total_distance, out float o_num_steps, out float o_last_distance, out float3 o_raypos, float max)
@@ -104,15 +68,15 @@
 			//float3 ray_dir = normalize(cam_pos - pos3);
 
 			o_raypos = cam_pos + ray_dir * o_total_distance;
+
 			o_num_steps = 0.0;
 			o_last_distance = 0.0;
-
 			for(int i=0; i<=100; ++i) {
 				o_last_distance = DE(o_raypos);
 				o_total_distance += o_last_distance;
-				o_raypos = ray_dir * o_total_distance;
+				o_raypos += ray_dir * o_last_distance;
 				
-				if(o_last_distance < 0.001 || o_total_distance > max)
+				if(o_last_distance < 0.0005 || o_total_distance > max)
 				{ 
 					o_num_steps = i;
 					break; 
@@ -124,7 +88,7 @@
 
 		float3 guess_normal(float3 p)
 		{
-			const float d = 1;
+			const float d = 0.001;
 			return normalize(float3(
 				DE(p + float3(d, 0.0, 0.0)) - DE(p + float3(-d, 0.0, 0.0)),
 				DE(p + float3(0.0, d, 0.0)) - DE(p + float3(0.0, -d, 0.0)),
@@ -182,9 +146,8 @@
 				
 				float r = 1-(numSteps/100);
 				
-				ret.Color = _Color * r;// _Color * (lastDist/tDist);
+				ret.Color = _Color * r *2;// _Color * (lastDist/tDist);
 				
-								
 				if(numSteps >= 100 || tDist >= max_distance || numSteps <= 1)
 				{
 					ret.Color = float4(0,0,0,0);
